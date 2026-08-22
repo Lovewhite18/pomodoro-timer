@@ -22,5 +22,5 @@
 - JavaScript (Vanilla JS)
 
 ## 🌐 在线体验
-> [点击这里在线体验番茄钟](https://lovewhite18.github.io/Pomodoro-Timer/)
+> [点击这里在线体验番茄钟](https://lovewhite18.github.io/pomodoro-timer/)
 
