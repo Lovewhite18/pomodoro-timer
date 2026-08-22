@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>番茄钟 · 三种心境</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<!-- 三种风格各配一种字体：牛奶=Quicksand(圆润)、雨后=Fraunces(诗集衬线)、夜灯=Cormorant Garamond(优雅细衬线) -->
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     主题切换的原理：
+     所有颜色、字体都写成 CSS 变量，定义在 body 的三种 class 上。
+     JS 只需要切换 body 的 class（theme-milk / theme-rain / theme-night），
+     整个页面的样式就会跟着变量一起改变，无需改动任何具体样式。
+     ============================================================ */
+
+  /* ---------- 风格A：热牛奶（默认，暖奶油系） ---------- */
+  body.theme-milk {
+    --page-bg1: #fffaf1; --page-bg2: #faf4e9; --page-bg3: #f5ecdc;
+    --card-bg: #f1e7d6;
+    --card-shadow: rgba(160, 106, 53, 0.14);
+    --accent: #a06a35;          /* 焦糖棕：倒计时数字、主按钮 */
+    --accent-deep: #7d5026;
+    --highlight: #edb98a;       /* 杏子色：进度环、聚焦光晕 */
+    --text: #7d5026;
+    --text-soft: #8a7a66;
+    --input-bg: #fffaf1;
+    --item-bg: #fffaf1;
+    --ring-track: rgba(160, 106, 53, 0.12);
+    --btn-solid-text: #fff8ee;
+    --garden-leaf: #7da05a;    /* 花园：叶子绿 */
+    --garden-soil: #b98a5e;    /* 花园：土壤棕 */
+    --garden-grass: #dce8c8;   /* 花园：草地 */
+    --font: 'Quicksand', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+
+  /* ---------- 风格B：雨后窗边（灰绿自然系） ---------- */
+  body.theme-rain {
+    --page-bg1: #f6f8f5; --page-bg2: #eef2ee; --page-bg3: #e3eae4;
+    --card-bg: #e7eee7;
+    --card-shadow: rgba(76, 107, 82, 0.14);
+    --accent: #5f8266;          /* 鼠尾草灰绿 */
+    --accent-deep: #47634d;
+    --highlight: #a3c49a;       /* 嫩叶绿：进度环 */
+    --text: #47634d;
+    --text-soft: #7c8a80;
+    --input-bg: #fbfdfb;
+    --item-bg: #fbfdfb;
+    --ring-track: rgba(95, 130, 102, 0.14);
+    --btn-solid-text: #f4f9f4;
+    --garden-leaf: #6b9e6f;
+    --garden-soil: #a98d6f;
+    --garden-grass: #cfe0c9;
+    --font: 'Fraunces', 'Songti SC', 'SimSun', serif;
+  }
+
+  /* ---------- 风格C：夜空台灯（深夜静谧系，深色） ---------- */
+  body.theme-night {
+    --page-bg1: #232a3d; --page-bg2: #1a1f2e; --page-bg3: #121622;
+    --card-bg: #252c40;
+    --card-shadow: rgba(0, 0, 0, 0.35);
+    --accent: #e8dcc3;          /* 台灯暖白：数字与主按钮 */
+    --accent-deep: #f2e9d6;
+    --highlight: #b8a7d9;       /* 薰衣草紫：进度环、微光 */
+    --text: #e8dcc3;
+    --text-soft: #9aa3b8;
+    --input-bg: rgba(255, 255, 255, 0.06);
+    --item-bg: rgba(255, 255, 255, 0.05);
+    --ring-track: rgba(232, 220, 195, 0.14);
+    --btn-solid-text: #2a2f42;  /* 夜灯主题里主按钮是亮底深字 */
+    --garden-leaf: #7fae8f;
+    --garden-soil: #5a4a3a;
+    --garden-grass: #33443c;
+    --font: 'Cormorant Garamond', 'Songti SC', 'SimSun', serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--page-bg2);
+    background-image: radial-gradient(ellipse at 50% 30%, var(--page-bg1) 0%, var(--page-bg2) 60%, var(--page-bg3) 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font);
+    color: var(--text);
+    padding: 40px 16px;
+    /* 换主题时背景、文字颜色在 0.5 秒内柔和过渡，不会生硬闪变 */
+    transition: background-color 0.5s ease, color 0.5s ease;
+  }
+
+  /* ===== 右上角主题切换器 ===== */
+  .theme-switcher {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    gap: 6px;
+    background: var(--card-bg);
+    border-radius: 999px;
+    padding: 5px;
+    box-shadow: 0 4px 14px var(--card-shadow);
+    transition: background-color 0.5s ease;
+    z-index: 10;
+  }
+
+  .theme-btn {
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: var(--text-soft);
+    cursor: pointer;
+    transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .theme-btn:hover { color: var(--accent); }
+  /* 当前选中的主题：实心胶囊高亮 */
+  .theme-btn.active {
+    background: var(--accent);
+    color: var(--btn-solid-text);
+    box-shadow: 0 3px 8px var(--card-shadow);
+  }
+
+  /* ===== 两栏布局：左侧花园 + 右侧主卡片 ===== */
+  .layout {
+    display: flex;
+    gap: 28px;
+    align-items: stretch;
+    justify-content: center;
+    width: 100%;
+    max-width: 980px;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 40px;
+    padding: 48px 56px 40px;
+    text-align: center;
+    box-shadow:
+      0 24px 60px var(--card-shadow),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    width: 100%;
+    max-width: 560px;
+    transition: background-color 0.5s ease, box-shadow 0.5s ease;
+  }
+
+  /* ===== 左侧：番茄养成花园 ===== */
+  .garden-card {
+    background: var(--card-bg);
+    border-radius: 40px;
+    padding: 30px 26px 26px;
+    box-shadow:
+      0 24px 60px var(--card-shadow),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    width: 300px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transition: background-color 0.5s ease, box-shadow 0.5s ease;
+  }
+
+  .garden-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    color: var(--text-soft);
+    margin-bottom: 4px;
+  }
+
+  /* 树：不同成长阶段显示不同元素 */
+  .garden-tree { width: 210px; height: 210px; margin: 6px 0 2px; }
+  .garden-tree .tree-trunk,
+  .garden-tree .tree-crown,
+  .garden-tree .tree-sprout,
+  .garden-tree .tree-flower,
+  .garden-tree .tree-fruit-green,
+  .garden-tree .tree-fruit-red {
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+  .garden-stage-0 .tree-sprout { opacity: 1; }
+  .garden-stage-1 .tree-sprout { opacity: 1; }
+  .garden-stage-2 .tree-trunk, .garden-stage-2 .tree-crown { opacity: 1; }
+  .garden-stage-3 .tree-trunk, .garden-stage-3 .tree-crown,
+  .garden-stage-3 .tree-flower { opacity: 1; }
+  .garden-stage-4 .tree-trunk, .garden-stage-4 .tree-crown,
+  .garden-stage-4 .tree-fruit-green { opacity: 1; }
+  .garden-stage-5 .tree-trunk, .garden-stage-5 .tree-crown,
+  .garden-stage-5 .tree-fruit-red { opacity: 1; }
+
+  /* 树长大时轻轻弹一下 */
+  .garden-tree.grow { animation: treeGrow 0.6s ease; }
+  @keyframes treeGrow {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+  /* 树枯萎时轻轻抖一下 */
+  .garden-tree.wilt { animation: treeWilt 0.5s ease; }
+  @keyframes treeWilt {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px) rotate(-2deg); }
+    75% { transform: translateX(5px) rotate(2deg); }
+  }
+
+  .garden-stage-name {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+    min-height: 22px;
+  }
+
+  .garden-progress {
+    font-size: 12px;
+    color: var(--text-soft);
+    min-height: 18px;
+    margin-top: 2px;
+    margin-bottom: 16px;
+  }
+
+  .garden-stats {
+    display: flex;
+    gap: 10px;
+    margin-top: auto;   /* 多余高度让给上方空白，统计卡片贴底 */
+    width: 100%;
+  }
+  .garden-stat {
+    flex: 1;
+    background: var(--item-bg);
+    border-radius: 14px;
+    padding: 10px 6px;
+    box-shadow: 0 2px 8px var(--card-shadow);
+  }
+  .garden-stat .num {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .garden-stat .label {
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-top: 2px;
+  }
+
+  /* ===== 成长阶段轨道：六个小节点连成一条线 ===== */
+  .garden-track {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: auto;   /* 与统计卡片的 auto 平分剩余空间，轨道居中悬浮在空白区 */
+    margin-bottom: 18px;
+    padding: 0 4px;
+    position: relative;
+  }
+  /* 节点之间的连接线 */
+  .garden-track::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 22px;
+    right: 22px;
+    height: 2px;
+    background: var(--ring-track);
+    border-radius: 2px;
+  }
+
+  .track-node {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 38px;
+  }
+  .track-node .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--card-bg);
+    border: 2px solid var(--ring-track);
+    transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, transform 0.3s ease;
+  }
+  .track-node .node-label {
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    color: var(--text-soft);
+    opacity: 0.7;
+    transition: color 0.4s ease, opacity 0.4s ease;
+  }
+  /* 已走过的阶段：叶绿实心 */
+  .track-node.past .dot {
+    background: var(--garden-leaf);
+    border-color: var(--garden-leaf);
+  }
+  .track-node.past .node-label { color: var(--garden-leaf); opacity: 1; }
+  /* 当前阶段：主题色 + 光环 */
+  .track-node.now .dot {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--ring-track);
+    transform: scale(1.15);
+  }
+  .track-node.now .node-label { color: var(--accent); opacity: 1; font-weight: 700; }
+  /* 升级时新点亮的节点弹一下 */
+  .track-node.pop .dot { animation: nodePop 0.5s ease; }
+  @keyframes nodePop {
+    0% { transform: scale(1.15); }
+    50% { transform: scale(1.7); }
+    100% { transform: scale(1.15); }
+  }
+
+  /* ===== 番茄小精灵（彩蛋：表情 + 连点触发番茄雨） ===== */
+  .tomato-mascot {
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 44px;
+    height: 44px;
+    cursor: pointer;
+    z-index: 2;
+  }
+  .tomato-mascot:active { transform: translateX(-50%) scale(0.9); }
+  .tomato-mascot.tap { animation: mascotTap 0.25s ease; }
+  @keyframes mascotTap {
+    0%, 100% { transform: translateX(-50%) scale(1); }
+    40% { transform: translateX(-50%) scale(1.25) rotate(-8deg); }
+  }
+  .tomato-mascot svg { width: 100%; height: 100%; overflow: visible; }
+
+  .mascot .mouth { transition: d 0.3s ease; }
+  .mascot .brow { opacity: 0; transition: opacity 0.3s ease; }
+  .mascot .eye { transition: all 0.3s ease; }
+  .mascot-focus .brow { opacity: 1; }
+  .mascot-done .mouth { transform: scaleY(1.15); }
+
+  /* ===== 番茄雨彩蛋：全屏飘落 ===== */
+  .tomato-rain {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 999;
+    overflow: hidden;
+  }
+  .tomato-rain .drop {
+    position: absolute;
+    top: -40px;
+    font-size: 26px;
+    animation: rainFall linear forwards;
+  }
+  @keyframes rainFall {
+    to { transform: translateY(110vh) rotate(360deg); }
+  }
+
+  /* ===== 收获/彩蛋提示 toast ===== */
+  .toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+    background: var(--card-bg);
+    color: var(--accent);
+    padding: 16px 30px;
+    border-radius: 999px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    box-shadow: 0 12px 40px var(--card-shadow);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1000;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+  .title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    color: var(--text-soft);
+    margin-bottom: 28px;
+    transition: color 0.5s ease;
+  }
+
+  /* ===== 任务输入框 ===== */
+  .task-input {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 15px;
+    color: var(--text);
+    background: var(--input-bg);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    padding: 13px 24px;
+    outline: none;
+    text-align: center;
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.5s ease, color 0.5s ease;
+  }
+  .task-input::placeholder { color: var(--text-soft); opacity: 0.7; }
+  .task-input:focus {
+    border-color: var(--highlight);
+    box-shadow: 0 0 0 4px var(--ring-track);
+  }
+
+  /* 空输入时的温和提示：轻轻摇晃 + 柔和提示文字 */
+  .task-input.shake { animation: shake 0.4s ease; border-color: var(--highlight); }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+
+  .hint {
+    font-size: 13px;
+    color: var(--accent);
+    min-height: 18px;
+    margin-top: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .hint.show { opacity: 1; }
+
+  /* ===== 专注时长选择器 ===== */
+  .duration-picker {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 6px 0 4px;
+    transition: opacity 0.3s ease;
+  }
+  /* 计时进行中锁定：降低透明度并禁止点击 */
+  .duration-picker.locked { opacity: 0.35; pointer-events: none; }
+
+  .dur-btn {
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1.5px solid var(--ring-track);
+    background: transparent;
+    color: var(--text-soft);
+    cursor: pointer;
+    transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  }
+  .dur-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .dur-btn.active {
+    background: var(--ring-track);
+    color: var(--accent);
+    border-color: var(--highlight);
+  }
+
+  .timer-wrap {
+    position: relative;
+    width: 260px;
+    height: 260px;
+    margin: 24px auto 28px;
+  }
+
+  .ring { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 6; stroke-linecap: round; }
+  .ring .track { stroke: var(--ring-track); transition: stroke 0.5s ease; }
+  .ring .progress { stroke: var(--highlight); transition: stroke-dashoffset 1s linear, stroke 0.5s ease; }
+
+  .time {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 60px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    transition: color 0.5s ease;
+  }
+
+  .status {
+    font-size: 14px;
+    color: var(--text-soft);
+    letter-spacing: 2px;
+    min-height: 20px;
+    margin-bottom: 24px;
+    transition: color 0.4s;
+  }
+  .status.done { color: var(--accent); }
+
+  .buttons { display: flex; gap: 14px; justify-content: center; }
+
+  button {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    padding: 13px 30px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  }
+  button:active { transform: translateY(2px) scale(0.98); }
+
+  .btn-start {
+    background: var(--accent);
+    color: var(--btn-solid-text);
+    border: none;
+    box-shadow: 0 6px 16px var(--card-shadow);
+  }
+  .btn-start:hover { background: var(--accent-deep); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--accent);
+    border: 2px solid var(--ring-track);
+  }
+  .btn-ghost:hover { border-color: var(--accent); }
+
+  button:disabled { opacity: 0.45; cursor: default; transform: none; }
+
+  /* ===== 历史记录列表 ===== */
+  .history { margin-top: 32px; text-align: left; }
+
+  /* 标题行：左边标题、中间今日统计、右边清空按钮 */
+  .history-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .history-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    color: var(--text-soft);
+  }
+
+  .stats {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+  }
+
+  .clear-btn {
+    font-family: var(--font);
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: var(--text-soft);
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
+  }
+  .clear-btn:hover { color: var(--accent); background: var(--ring-track); }
+  .clear-btn.armed { color: #c05b4d; }
+
+  .history-empty {
+    font-size: 13px;
+    color: var(--text-soft);
+    opacity: 0.7;
+    text-align: center;
+    padding: 16px 0;
+  }
+
+  .history-list {
+    list-style: none;
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .history-item {
+    background: var(--item-bg);
+    border-radius: 16px;
+    padding: 12px 18px;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 2px 8px var(--card-shadow);
+    transition: background-color 0.5s ease;
+  }
+
+  .history-item .task-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .history-item .task-meta { flex-shrink: 0; font-size: 12px; color: var(--text-soft); }
+  .history-item .task-meta.finished { color: var(--accent); font-weight: 600; }
+
+  .history-item .item-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* 单条记录右侧的小删除按钮：平时很淡，悬停时才醒目 */
+  .history-item .del-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 0.2s ease, color 0.2s ease, background 0.2s ease;
+  }
+  .history-item .del-btn:hover {
+    opacity: 1;
+    color: #c05b4d;
+    background: var(--ring-track);
+  }
+
+  /* ===== 小屏幕适配 ===== */
+  @media (max-width: 860px) {
+    .layout { flex-direction: column; align-items: center; }
+    .garden-card { width: 100%; max-width: 560px; }
+    .garden-tree { width: 180px; height: 180px; }
+  }
+
+  @media (max-width: 560px) {
+    body { padding: 64px 12px 24px; }
+    .card { padding: 32px 22px 28px; border-radius: 28px; }
+    .garden-card { padding: 24px 18px 20px; border-radius: 28px; }
+    .timer-wrap { width: 220px; height: 220px; margin: 18px auto 22px; }
+    .time { font-size: 48px; }
+    .theme-switcher { top: 12px; right: 12px; }
+    .theme-btn { padding: 6px 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<!-- 默认主题为"热牛奶"，JS 加载时会根据 localStorage 里的记忆替换掉这个 class -->
+<body class="theme-milk">
+
+  <!-- ===== 主题切换器：点击后 JS 切换 body 的 class ===== -->
+  <div class="theme-switcher" id="themeSwitcher">
+    <button class="theme-btn active" data-theme="theme-milk">暖风</button>
+    <button class="theme-btn" data-theme="theme-rain">森林</button>
+    <button class="theme-btn" data-theme="theme-night">夜灯</button>
+  </div>
+
+  <div class="layout">
+
+  <!-- ===== 左侧：番茄养成花园 ===== -->
+  <div class="garden-card" id="gardenCard">
+    <div class="garden-title">番茄花园</div>
+
+    <svg class="garden-tree" id="gardenTree" viewBox="0 0 220 220">
+      <!-- 土壤 -->
+      <ellipse cx="110" cy="196" rx="72" ry="16" fill="var(--garden-soil)"></ellipse>
+      <ellipse cx="110" cy="192" rx="72" ry="16" fill="var(--garden-grass)"></ellipse>
+      <!-- 种子阶段的小芽 -->
+      <g class="tree-sprout">
+        <path d="M110 192 C110 178 110 172 110 164" stroke="var(--garden-leaf)" stroke-width="4" fill="none" stroke-linecap="round"></path>
+        <ellipse cx="103" cy="164" rx="7" ry="4" fill="var(--garden-leaf)" transform="rotate(-25 103 164)"></ellipse>
+        <ellipse cx="117" cy="164" rx="7" ry="4" fill="var(--garden-leaf)" transform="rotate(25 117 164)"></ellipse>
+      </g>
+      <!-- 树干 -->
+      <path class="tree-trunk" d="M110 190 C108 160 108 140 110 118" stroke="#8a6a44" stroke-width="14" fill="none" stroke-linecap="round"></path>
+      <!-- 树冠 -->
+      <g class="tree-crown">
+        <circle cx="110" cy="92" r="38" fill="var(--garden-leaf)"></circle>
+        <circle cx="82" cy="108" r="26" fill="var(--garden-leaf)"></circle>
+        <circle cx="138" cy="108" r="26" fill="var(--garden-leaf)"></circle>
+        <circle cx="110" cy="70" r="22" fill="var(--garden-leaf)"></circle>
+      </g>
+      <!-- 花 -->
+      <g class="tree-flower">
+        <circle cx="96" cy="88" r="5" fill="#fff4e0"></circle>
+        <circle cx="124" cy="86" r="5" fill="#fff4e0"></circle>
+        <circle cx="110" cy="102" r="5" fill="#fff4e0"></circle>
+      </g>
+      <!-- 青番茄 -->
+      <g class="tree-fruit-green">
+        <circle cx="96" cy="96" r="8" fill="#7fb069"></circle>
+        <circle cx="124" cy="94" r="8" fill="#7fb069"></circle>
+        <circle cx="110" cy="112" r="8" fill="#7fb069"></circle>
+      </g>
+      <!-- 红番茄 -->
+      <g class="tree-fruit-red">
+        <circle cx="94" cy="94" r="9" fill="#e05d4a"></circle>
+        <circle cx="126" cy="92" r="9" fill="#e05d4a"></circle>
+        <circle cx="110" cy="114" r="9" fill="#e05d4a"></circle>
+        <circle cx="110" cy="78" r="8" fill="#e05d4a"></circle>
+      </g>
+    </svg>
+
+    <div class="garden-stage-name" id="gardenStageName">种子</div>
+    <div class="garden-progress" id="gardenProgress">完成 1 个番茄，种子就会发芽</div>
+
+    <!-- 成长阶段轨道：当前种到哪一步一目了然 -->
+    <div class="garden-track" id="gardenTrack"></div>
+
+    <div class="garden-stats">
+      <div class="garden-stat">
+        <div class="num" id="gardenStreak">0</div>
+        <div class="label">连续番茄</div>
+      </div>
+      <div class="garden-stat">
+        <div class="num" id="gardenHarvests">0</div>
+        <div class="label">收获次数</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">LoveWhite · 专注一刻</div>
+
+    <input class="task-input" id="taskInput" type="text"
+           placeholder="这个番茄钟，想做点什么？" maxlength="50">
+    <div class="hint" id="hint">先写下想做的事，再开始哦</div>
+
+    <!-- ===== 专注时长选择：计时进行中会自动锁定 ===== -->
+    <div class="duration-picker" id="durationPicker">
+      <button class="dur-btn" data-min="15">15 分钟</button>
+      <button class="dur-btn active" data-min="25">25 分钟</button>
+      <button class="dur-btn" data-min="45">45 分钟</button>
+    </div>
+
+    <div class="timer-wrap">
+      <svg class="ring" viewBox="0 0 260 260">
+        <circle class="track" cx="130" cy="130" r="124"></circle>
+        <circle class="progress" id="progressRing" cx="130" cy="130" r="124"></circle>
+      </svg>
+      <!-- 番茄小精灵：表情随状态变化，点击有惊喜 -->
+      <div class="tomato-mascot mascot" id="tomatoMascot" title="点我试试？">
+        <svg viewBox="0 0 64 64">
+          <ellipse cx="32" cy="38" rx="20" ry="17" fill="#e05d4a"></ellipse>
+          <path d="M32 22 C26 13 19 15 19 20 C19 25 26 27 32 22 Z" fill="#4c9a52"></path>
+          <path d="M32 22 C38 13 45 15 45 20 C45 25 38 27 32 22 Z" fill="#4c9a52"></path>
+          <path d="M32 22 C30 15 28 13 23 12 C28 13 32 15 32 22 Z" fill="#4c9a52"></path>
+          <path d="M32 22 C34 15 36 13 41 12 C36 13 32 15 32 22 Z" fill="#4c9a52"></path>
+          <circle class="eye" cx="26" cy="37" r="2.6" fill="#3a1f1a"></circle>
+          <circle class="eye" cx="38" cy="37" r="2.6" fill="#3a1f1a"></circle>
+          <path class="brow" d="M21 31 Q26 28 31 31" stroke="#3a1f1a" stroke-width="2" fill="none" stroke-linecap="round"></path>
+          <path class="brow" d="M33 31 Q38 28 43 31" stroke="#3a1f1a" stroke-width="2" fill="none" stroke-linecap="round"></path>
+          <path class="mouth" d="M27 44 Q32 48 37 44" stroke="#3a1f1a" stroke-width="2.4" fill="none" stroke-linecap="round"></path>
+        </svg>
+      </div>
+      <div class="time" id="timeDisplay">25:00</div>
+    </div>
+
+    <div class="status" id="status">准备好了吗？坐下来，慢慢来</div>
+
+    <div class="buttons">
+      <button class="btn-start" id="btnStart">开始</button>
+      <button class="btn-ghost" id="btnPause" disabled>暂停</button>
+      <button class="btn-ghost" id="btnReset">重置</button>
+    </div>
+
+    <div class="history">
+      <div class="history-bar">
+        <div class="history-title">历史记录</div>
+        <div class="stats" id="stats">今日 · 0 个番茄</div>
+        <button class="clear-btn" id="btnClear">清空</button>
+      </div>
+      <div class="history-empty" id="historyEmpty">还没有记录，从第一个番茄钟开始吧</div>
+      <ul class="history-list" id="historyList"></ul>
+    </div>
+  </div>
+
+  </div><!-- /.layout -->
+
+  <!-- 收获/彩蛋提示 -->
+  <div class="toast" id="toast"></div>
+  <!-- 番茄雨彩蛋层 -->
+  <div class="tomato-rain" id="tomatoRain"></div>
+
+<script>
+  const CIRCUMFERENCE = 2 * Math.PI * 124;
+  const BREAK_MINUTES = 5;                 // 专注结束后自动进入的休息时长
+  const FOCUS_OPTIONS = [15, 25, 45];      // 可选的专注时长（分钟）
+
+  // localStorage 里用的"钥匙名"
+  const THEME_KEY = 'pomodoro-theme';        // 记住用户选的主题
+  const RECORDS_KEY = 'pomodoro-records';    // 记住历史任务记录
+  const DURATION_KEY = 'pomodoro-duration';  // 记住上次选的专注时长
+
+  let mode = 'focus';          // 当前模式：'focus' 专注 | 'break' 休息
+  let focusMinutes = 25;       // 用户选择的专注时长（分钟）
+  let remaining = focusMinutes * 60;
+  let timerId = null;
+  let currentRecordId = null;  // 当前这次番茄钟对应的记录 id
+  let titleBlinkId = null;     // 时间到之后让标签页标题闪烁的定时器
+
+  // 当前模式的完整时长（进度环的分母，随模式/时长变化）
+  function currentTotal() {
+    return mode === 'focus' ? focusMinutes * 60 : BREAK_MINUTES * 60;
+  }
+
+  const timeDisplay = document.getElementById('timeDisplay');
+  const statusEl = document.getElementById('status');
+  const progressRing = document.getElementById('progressRing');
+  const btnStart = document.getElementById('btnStart');
+  const btnPause = document.getElementById('btnPause');
+  const btnReset = document.getElementById('btnReset');
+  const taskInput = document.getElementById('taskInput');
+  const hint = document.getElementById('hint');
+  const historyList = document.getElementById('historyList');
+  const historyEmpty = document.getElementById('historyEmpty');
+  const themeSwitcher = document.getElementById('themeSwitcher');
+  const durationPicker = document.getElementById('durationPicker');
+  const statsEl = document.getElementById('stats');
+  const btnClear = document.getElementById('btnClear');
+  const gardenCard = document.getElementById('gardenCard');
+  const gardenTree = document.getElementById('gardenTree');
+  const gardenStageName = document.getElementById('gardenStageName');
+  const gardenProgress = document.getElementById('gardenProgress');
+  const gardenTrack = document.getElementById('gardenTrack');
+  const gardenStreak = document.getElementById('gardenStreak');
+  const gardenHarvests = document.getElementById('gardenHarvests');
+  const tomatoMascot = document.getElementById('tomatoMascot');
+  const toast = document.getElementById('toast');
+  const tomatoRain = document.getElementById('tomatoRain');
+
+  progressRing.style.strokeDasharray = CIRCUMFERENCE;
+  progressRing.style.strokeDashoffset = 0;
+
+  /* ============================================================
+     第一部分：主题切换 + 主题记忆
+     原理：JS 只负责换 body 的 class 名，样式全靠 CSS 变量自动跟着变
+     ============================================================ */
+  const THEMES = ['theme-milk', 'theme-rain', 'theme-night'];
+
+  function applyTheme(themeName) {
+    // 先移除所有主题 class，再加上选中的那个
+    document.body.classList.remove.apply(document.body.classList, THEMES);
+    document.body.classList.add(themeName);
+    // 同步切换器按钮的高亮状态
+    themeSwitcher.querySelectorAll('.theme-btn').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.theme === themeName);
+    });
+  }
+
+  themeSwitcher.addEventListener('click', function (e) {
+    const btn = e.target.closest('.theme-btn');
+    if (!btn) return;
+    applyTheme(btn.dataset.theme);
+    localStorage.setItem(THEME_KEY, btn.dataset.theme);  // 把选择写进记忆
+  });
+
+  // 页面打开时：读取记忆里的主题（没有就用默认的"热牛奶"）
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  if (savedTheme && THEMES.indexOf(savedTheme) !== -1) {
+    applyTheme(savedTheme);
+  }
+
+  /* ============================================================
+     第二部分：历史记录的存取（localStorage）
+     记录格式：[{ id, text, meta, finished }]
+     localStorage 只能存字符串，所以用 JSON 来回转换
+     ============================================================ */
+  function loadRecords() {
+    try {
+      return JSON.parse(localStorage.getItem(RECORDS_KEY)) || [];
+    } catch (e) {
+      return [];   // 数据损坏时当作没有记录，避免页面崩掉
+    }
+  }
+
+  function saveRecords(records) {
+    localStorage.setItem(RECORDS_KEY, JSON.stringify(records));
+  }
+
+  // 根据记录数组重新渲染整个列表（新增、删除、标记完成、刷新页面后都走这里）
+  function renderRecords() {
+    const records = loadRecords();
+    historyList.innerHTML = '';
+    historyEmpty.style.display = records.length === 0 ? 'block' : 'none';
+
+    records.forEach(function (rec) {
+      const item = document.createElement('li');
+      item.className = 'history-item';
+
+      const text = document.createElement('span');
+      text.className = 'task-text';
+      text.textContent = rec.text;
+
+      const right = document.createElement('span');
+      right.className = 'item-right';
+
+      const meta = document.createElement('span');
+      meta.className = 'task-meta' + (rec.finished ? ' finished' : '');
+      meta.textContent = rec.finished ? '已完成 ✓' : rec.meta;
+
+      const del = document.createElement('button');
+      del.className = 'del-btn';
+      del.title = '删除这条记录';
+      del.textContent = '×';
+      del.addEventListener('click', function () {
+        deleteRecord(rec.id);
+      });
+
+      right.appendChild(meta);
+      right.appendChild(del);
+      item.appendChild(text);
+      item.appendChild(right);
+      historyList.appendChild(item);
+    });
+
+    renderStats();
+  }
+
+  // 今日统计：数一数今天完成了几个番茄、累计专注多少分钟
+  function renderStats() {
+    const today = getTodayStr();
+    let count = 0;
+    let minutes = 0;
+    loadRecords().forEach(function (rec) {
+      if (rec.finished && rec.date === today) {
+        count++;
+        minutes += rec.duration || 25;
+      }
+    });
+    statsEl.textContent = count === 0
+      ? '今日 · 0 个番茄'
+      : '今日 · ' + count + ' 个番茄 · ' + minutes + ' 分钟';
+  }
+
+  // 本地日期字符串（YYYY-MM-DD），用来判断记录是不是"今天"的
+  function getTodayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
+  // 新增一条记录：放到数组最前面（最新在上），存起来，重新渲染
+  function addRecord(taskText) {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+
+    const rec = {
+      id: Date.now(),                 // 用时间戳当唯一 id，方便倒计时结束时找到它
+      text: taskText,
+      meta: hh + ':' + mm + ' 开始',
+      date: getTodayStr(),            // 开始日期，用来统计"今日"
+      duration: focusMinutes,         // 本次专注时长（分钟）
+      finished: false
+    };
+
+    const records = loadRecords();
+    records.unshift(rec);
+    saveRecords(records);
+    renderRecords();
+    return rec.id;
+  }
+
+  // 倒计时完整结束：把当前记录标记为"已完成"并保存
+  function finishRecord(id) {
+    const records = loadRecords();
+    for (let i = 0; i < records.length; i++) {
+      if (records[i].id === id) {
+        records[i].finished = true;
+        break;
+      }
+    }
+    saveRecords(records);
+    renderRecords();
+  }
+
+  // 删除单条记录
+  function deleteRecord(id) {
+    saveRecords(loadRecords().filter(function (r) { return r.id !== id; }));
+    renderRecords();
+  }
+
+  // 清空全部记录：第一次点击只是"上膛"提示，再点一次才真的清空（防手滑）
+  let clearArmed = false;
+  let clearArmTimer = null;
+
+  btnClear.addEventListener('click', function () {
+    if (!clearArmed) {
+      clearArmed = true;
+      btnClear.textContent = '确认清空？';
+      btnClear.classList.add('armed');
+      clearTimeout(clearArmTimer);
+      clearArmTimer = setTimeout(function () {
+        clearArmed = false;
+        btnClear.textContent = '清空';
+        btnClear.classList.remove('armed');
+      }, 3000);
+      return;
+    }
+    clearTimeout(clearArmTimer);
+    clearArmed = false;
+    btnClear.textContent = '清空';
+    btnClear.classList.remove('armed');
+    saveRecords([]);
+    renderRecords();
+  });
+
+  /* ============================================================
+     第四部分：番茄养成花园 + 趣味彩蛋
+     ============================================================ */
+  const GARDEN_KEY = 'pomodoro-garden';
+  const STAGE_NAMES = ['种子', '幼苗', '小树', '开花', '结果', '成熟'];
+  const STAGE_PROGRESS = [
+    '完成 1 个番茄，种子就会发芽',
+    '再完成 1 个番茄，就会长成小树',
+    '再完成 2 个番茄，就会开花',
+    '再完成 2 个番茄，就会结果',
+    '再完成 2 个番茄，就能收获啦',
+    '树已成熟！再完成 1 个番茄即可收获'
+  ];
+
+  function loadGarden() {
+    try {
+      return JSON.parse(localStorage.getItem(GARDEN_KEY)) || { streak: 0, harvests: 0 };
+    } catch (e) {
+      return { streak: 0, harvests: 0 };
+    }
+  }
+
+  function saveGarden(g) {
+    localStorage.setItem(GARDEN_KEY, JSON.stringify(g));
+  }
+
+  // 渲染花园：stage 由连续番茄数决定（封顶 5 级=成熟）
+  function renderGarden(g, animate) {
+    const stage = Math.min(g.streak, 5);
+    for (let i = 0; i <= 5; i++) {
+      gardenCard.classList.remove('garden-stage-' + i);
+    }
+    gardenCard.classList.add('garden-stage-' + stage);
+    gardenStageName.textContent = STAGE_NAMES[stage];
+    gardenStreak.textContent = g.streak;
+    gardenHarvests.textContent = g.harvests;
+    gardenProgress.textContent = STAGE_PROGRESS[stage];
+
+    // 成长轨道：走过的阶段绿点，当前阶段主题色高亮
+    gardenTrack.innerHTML = '';
+    STAGE_NAMES.forEach(function (name, i) {
+      const node = document.createElement('div');
+      node.className = 'track-node' + (i < stage ? ' past' : '') + (i === stage ? ' now' : '');
+      if (animate === 'grow' && i === stage) node.classList.add('pop');
+
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      const label = document.createElement('span');
+      label.className = 'node-label';
+      label.textContent = name;
+
+      node.appendChild(dot);
+      node.appendChild(label);
+      gardenTrack.appendChild(node);
+    });
+
+    if (animate === 'grow') {
+      gardenTree.classList.remove('grow');
+      void gardenTree.offsetWidth;
+      gardenTree.classList.add('grow');
+    } else if (animate === 'wilt') {
+      gardenTree.classList.remove('wilt');
+      void gardenTree.offsetWidth;
+      gardenTree.classList.add('wilt');
+    }
+  }
+
+  // 完成一个专注番茄：树长大；连续满 5 个后第 6 个触发收获
+  function gardenGrow() {
+    const g = loadGarden();
+    g.streak++;
+    if (g.streak > 5) {
+      g.harvests++;
+      g.streak = 1;
+      renderGarden(g, 'grow');
+      showToast('🎉 番茄树成熟啦，收获 +1！');
+      spawnTomatoRain(16);
+    } else {
+      renderGarden(g, 'grow');
+    }
+    saveGarden(g);
+  }
+
+  // 中途放弃（未完成就重置）：树枯萎一点，连续数 -1
+  function gardenWilt() {
+    const g = loadGarden();
+    if (g.streak > 0) {
+      g.streak--;
+      renderGarden(g, 'wilt');
+      saveGarden(g);
+    }
+  }
+
+  // 中间提示条
+  let toastTimer = null;
+  function showToast(text) {
+    toast.textContent = text;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toast.classList.remove('show');
+    }, 2200);
+  }
+
+  // 番茄雨彩蛋：全屏飘落番茄
+  function spawnTomatoRain(count) {
+    tomatoRain.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const drop = document.createElement('span');
+      drop.className = 'drop';
+      drop.textContent = Math.random() < 0.5 ? '🍅' : '🍒';
+      drop.style.left = (Math.random() * 100) + 'vw';
+      drop.style.animationDuration = (2.5 + Math.random() * 2.5) + 's';
+      drop.style.animationDelay = (Math.random() * 1.2) + 's';
+      drop.style.fontSize = (18 + Math.random() * 22) + 'px';
+      tomatoRain.appendChild(drop);
+    }
+    setTimeout(function () { tomatoRain.innerHTML = ''; }, 6000);
+  }
+
+  // 番茄小精灵的表情：idle 微笑 / focus 皱眉 / break 放松 / done 开心
+  function setMascotMood(mood) {
+    const mouth = tomatoMascot.querySelector('.mouth');
+    const brows = tomatoMascot.querySelectorAll('.brow');
+    if (mood === 'focus') {
+      mouth.setAttribute('d', 'M28 44 Q32 42 36 44');
+      brows.forEach(function (b) { b.style.opacity = '1'; });
+    } else if (mood === 'break') {
+      mouth.setAttribute('d', 'M27 41 Q32 50 37 41');
+      brows.forEach(function (b) { b.style.opacity = '0'; });
+    } else if (mood === 'done') {
+      mouth.setAttribute('d', 'M26 43 Q32 51 38 43');
+      brows.forEach(function (b) { b.style.opacity = '0'; });
+    } else {
+      mouth.setAttribute('d', 'M27 44 Q32 48 37 44');
+      brows.forEach(function (b) { b.style.opacity = '0'; });
+    }
+  }
+
+  // 连点番茄 10 次触发隐藏彩蛋
+  let mascotTaps = 0;
+  let mascotTapTimer = null;
+
+  tomatoMascot.addEventListener('click', function () {
+    tomatoMascot.classList.remove('tap');
+    void tomatoMascot.offsetWidth;
+    tomatoMascot.classList.add('tap');
+
+    mascotTaps++;
+    clearTimeout(mascotTapTimer);
+    mascotTapTimer = setTimeout(function () { mascotTaps = 0; }, 2000);
+
+    if (mascotTaps >= 10) {
+      mascotTaps = 0;
+      spawnTomatoRain(30);
+      showToast('🎉 你发现了隐藏彩蛋！番茄雨来啦');
+    }
+  });
+
+  // 开始专注时的随机语录
+  const QUOTES = [
+    '专注，是给未来最好的礼物',
+    '一次只做一件事，把它做好',
+    '慢慢来，比较快',
+    '坚持，比完美更重要',
+    '此刻的专注，是明天的从容',
+    '把今天过成你想要的样子',
+    '心无旁骛，万事可期',
+    '你专注的样子，闪闪发光',
+    '种一棵树最好的时间是现在',
+    '安静地做，成功了再说'
+  ];
+
+  /* ============================================================
+     第三部分：番茄钟本体（专注/休息循环、提示音、按钮、快捷键）
+     ============================================================ */
+  function render() {
+    const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const s = String(remaining % 60).padStart(2, '0');
+    timeDisplay.textContent = m + ':' + s;
+    document.title = m + ':' + s + ' · ' + (mode === 'focus' ? '番茄钟' : '休息中');
+    progressRing.style.strokeDashoffset = CIRCUMFERENCE * (1 - remaining / currentTotal());
+  }
+
+  // 时间到之后让标签页标题闪烁提醒（用户切回页面时自动停止）
+  function startTitleBlink() {
+    stopTitleBlink();
+    let on = false;
+    titleBlinkId = setInterval(function () {
+      on = !on;
+      document.title = on ? '时间到啦！' : '番茄钟';
+    }, 900);
+  }
+
+  function stopTitleBlink() {
+    if (!titleBlinkId) return;
+    clearInterval(titleBlinkId);
+    titleBlinkId = null;
+    render();   // 把标题恢复成正常的倒计时
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) stopTitleBlink();
+  });
+
+  // 空输入时的温和提示：摇晃输入框 + 显示提示文字
+  function showGentleHint() {
+    hint.classList.add('show');
+    taskInput.classList.remove('shake');
+    void taskInput.offsetWidth;   // 重置动画，让摇晃可以重复触发
+    taskInput.classList.add('shake');
+    taskInput.focus();
+  }
+
+  taskInput.addEventListener('input', function () {
+    if (taskInput.value.trim() !== '') hint.classList.remove('show');
+  });
+
+  // 用 Web Audio 合成三声柔和的钟音（C5 E5 G5），无需外部音频文件
+  function playChime() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523.25, 659.25, 783.99];
+    notes.forEach(function (freq, i) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.35;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.25, t + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 1.3);
+    });
+  }
+
+  function tick() {
+    remaining--;
+    if (remaining > 0) {
+      render();
+      return;
+    }
+
+    remaining = 0;
+    stopTimer();
+    render();
+    playChime();
+
+    if (mode === 'focus') {
+      // 专注结束：给任务打上"已完成"，花园里的树长大一点，自动进入休息倒计时
+      if (currentRecordId !== null) {
+        finishRecord(currentRecordId);
+        currentRecordId = null;
+      }
+      gardenGrow();
+      setMascotMood('done');
+      enterBreak();
+    } else {
+      // 休息结束：闪烁标题提醒用户回来，回到专注待命（任务内容保留）
+      statusEl.textContent = '休息结束，开始下一个专注吧';
+      statusEl.classList.add('done');
+      startTitleBlink();
+      backToFocus(false);
+    }
+  }
+
+  // 专注结束：切换到休息模式并自动开始倒计时
+  function enterBreak() {
+    mode = 'break';
+    remaining = BREAK_MINUTES * 60;
+    btnReset.textContent = '跳过休息';
+    setMascotMood('break');
+    updatePickerState();
+    startTimer();   // 休息模式不需要任务检查，直接开跑
+  }
+
+  // 回到专注模式：clearTask 为 true 时清空任务输入（手动重置才清空）
+  function backToFocus(clearTask) {
+    mode = 'focus';
+    remaining = focusMinutes * 60;
+    currentRecordId = null;
+    btnReset.textContent = '重置';
+    taskInput.disabled = false;
+    if (clearTask) taskInput.value = '';
+    setMascotMood('idle');
+    updatePickerState();
+    render();
+  }
+
+  function startTimer() {
+    if (timerId || remaining <= 0) return;
+    stopTitleBlink();
+
+    if (mode === 'focus') {
+      // 开始前的检查：必须先填写任务
+      const taskText = taskInput.value.trim();
+      if (taskText === '') {
+        showGentleHint();
+        return;
+      }
+
+      // 只有"从整段时长全新开始"时才新增记录（暂停后继续不会重复记录）
+      if (remaining === focusMinutes * 60) {
+        currentRecordId = addRecord(taskText);
+      }
+      setMascotMood('focus');
+      statusEl.textContent = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+    } else {
+      setMascotMood('break');
+      statusEl.textContent = '休息中，起来走走喝口水';
+    }
+
+    timerId = setInterval(tick, 1000);
+    btnStart.disabled = true;
+    btnPause.disabled = false;
+    taskInput.disabled = true;
+    statusEl.classList.remove('done');
+    updatePickerState();
+  }
+
+  function stopTimer() {
+    clearInterval(timerId);
+    timerId = null;
+    btnStart.disabled = false;
+    btnPause.disabled = true;
+  }
+
+  function pauseTimer() {
+    stopTimer();
+    statusEl.textContent = mode === 'focus' ? '暂停一下，深呼吸' : '休息暂停，随时继续';
+  }
+
+  btnStart.addEventListener('click', startTimer);
+
+  btnPause.addEventListener('click', pauseTimer);
+
+  // 重置按钮：专注模式下=清空重来；休息模式下=跳过休息
+  btnReset.addEventListener('click', function () {
+    stopTimer();
+    stopTitleBlink();
+    if (mode === 'break') {
+      backToFocus(false);
+      statusEl.classList.remove('done');
+      statusEl.textContent = '休息好了，继续下一个番茄吧';
+    } else {
+      // 这轮专注已经开始但没完成就重置 = 放弃，花园里的树会枯萎一点
+      if (currentRecordId !== null) gardenWilt();
+      backToFocus(true);
+      hint.classList.remove('show');
+      statusEl.classList.remove('done');
+      statusEl.textContent = '我见玫瑰，始于荆棘之上。';
+    }
+  });
+
+  /* ===== 专注时长选择（15 / 25 / 45 分钟）===== */
+  // 计时进行中或本轮专注已开跑时锁定，避免中途换时长搞乱进度环
+  function updatePickerState() {
+    const locked = mode !== 'focus' || timerId !== null || remaining !== focusMinutes * 60;
+    durationPicker.classList.toggle('locked', locked);
+    durationPicker.querySelectorAll('.dur-btn').forEach(function (btn) {
+      btn.classList.toggle('active', Number(btn.dataset.min) === focusMinutes);
+    });
+  }
+
+  durationPicker.addEventListener('click', function (e) {
+    const btn = e.target.closest('.dur-btn');
+    if (!btn) return;
+    if (mode !== 'focus' || remaining !== focusMinutes * 60) return;
+
+    focusMinutes = Number(btn.dataset.min);
+    remaining = focusMinutes * 60;
+    localStorage.setItem(DURATION_KEY, String(focusMinutes));   // 记住这个选择
+    updatePickerState();
+    render();
+  });
+
+  /* ===== 键盘快捷键：空格 = 开始 / 暂停 ===== */
+  document.addEventListener('keydown', function (e) {
+    if (e.code !== 'Space') return;
+    if (e.target === taskInput) return;   // 输入框里敲空格是正常打字
+    e.preventDefault();                    // 顺便阻止空格滚动页面
+    if (timerId) {
+      pauseTimer();
+    } else {
+      startTimer();
+    }
+  });
+
+  // 页面加载：恢复上次选的专注时长，渲染倒计时和历史记录
+  const savedDuration = parseInt(localStorage.getItem(DURATION_KEY), 10);
+  if (FOCUS_OPTIONS.indexOf(savedDuration) !== -1) {
+    focusMinutes = savedDuration;
+    remaining = focusMinutes * 60;
+  }
+  updatePickerState();
+  render();
+  renderRecords();
+  renderGarden(loadGarden());
+</script>
+</body>
+</html>
